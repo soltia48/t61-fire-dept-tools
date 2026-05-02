@@ -1,19 +1,24 @@
 # t61-fire-dept-tools
 
-Rust tooling for decoding the Japanese fire-department voice/data channel
-defined in **ARIB STD-T61 v1.2 part 2** (SCPC/FDMA, downlink). The crate
-provides two streaming command-line binaries plus a reusable library
-(`t61_fd`).
+Tooling for decoding the Japanese fire-department voice/data channel
+defined in **ARIB STD-T61 v1.2 part 2** (SCPC/FDMA, downlink). The
+repository ships:
+
+- a Rust crate (`t61_fd`) with two streaming command-line binaries
+  (`t61_frame_slicer`, `t61_fd_decoder`)
+- a GNU Radio-based SDR receiver in Python (`arib_t61_rx.py`) plus its
+  custom π/4-QPSK quasi-coherent demod block (`pi4_qpsk_demod.py`)
 
 The intended capture chain is:
 
 ```
-2-bit symbol stream (π/4-DQPSK demodulated, MSB-first, 4 symbols/byte)
-  └─► t61_frame_slicer (sync-word lock → 48-byte FDMA frames)
-        └─► t61_fd_decoder (JSONL records, or CELP-only hex)
+SDR / IQ recording
+  └─► arib_t61_rx.py        (GNU Radio: RF → π/4-DQPSK demod → 2-bit symbols)
+        └─► t61_frame_slicer (sync-word lock → 48-byte FDMA frames)
+              └─► t61_fd_decoder (JSONL records, or CELP-only hex)
 ```
 
-Every stage is pipe-friendly and unbuffered, so a live capture can be
+Every stage is pipe-friendly and unbuffered, so a live SDR capture can be
 decoded in real time end-to-end.
 
 ## Building
@@ -29,10 +34,60 @@ The binaries are produced at `target/release/t61_frame_slicer` and
 
 ## Tools
 
+### `arib_t61_rx.py`
+
+GNU Radio receiver that takes IQ from an SDR, performs frequency
+translation, RRC matched filtering, polyphase symbol clock recovery, and
+π/4-QPSK quasi-coherent demodulation, and writes 2-bit symbols
+downstream. Supported SDR backends (selected with `--device`):
+
+`hackrf`, `rtlsdr`, `airspy`, `airspyhf`, `bladerf`, `uhd` (USRP),
+`limesdr`, `plutosdr`, `sdrplay`, `soapy` (generic SoapySDR passthrough).
+
+Per-device defaults (sample rate, decimation, LO offset, gain stages)
+are picked automatically; everything is overridable from the CLI.
+
+```sh
+# RTL-SDR, on-channel tune, packed 4-symbols/byte to stdout
+python3 arib_t61_rx.py --device rtlsdr --freq 467.000e6 --packed-out -
+
+# HackRF with the default 500 kHz LO offset; live decode end-to-end
+python3 arib_t61_rx.py -d hackrf -f 467.000e6 --packed-out - \
+  | t61_frame_slicer | t61_fd_decoder
+
+# Open the Qt GUI (spectrum / channel waterfall / constellation)
+python3 arib_t61_rx.py -d hackrf -f 467.000e6 --gui
+
+# Save decimated baseband IQ for offline replay
+python3 arib_t61_rx.py -d airspy -f 467.000e6 --iq-out capture.cf32
+```
+
+Output sinks (any combination):
+
+- `--packed-out PATH|-` — 4 symbols per byte, MSB-first (the format
+  `t61_frame_slicer` consumes); use `-` to write to stdout
+- `--bits-out PATH` — one symbol per byte (raw 0..3), useful for
+  inspection
+- `--iq-out PATH` — decimated baseband IQ (`complex64`) at the input of
+  the matched filter
+
+Tuning knobs worth knowing: `--lo-offset` (defaults to 500 kHz on
+HackRF, 0 elsewhere), `--phase-loop-gain` / `--freq-loop-gain` for the
+demod PLL, `--timing-loop-bw` / `--timing-max-dev` for the polyphase
+clock-sync, and `--squelch-db` / `--fll-bw` for noisy captures.
+
+`pi4_qpsk_demod.py` is the embedded GNU Radio Python block that does
+the actual demodulation (JPH06132996A architecture: quasi-coherent with
+2nd-order PLL, lock detector with periodic state reset, Gray-coded
+MSB-first dibit output). It is imported by `arib_t61_rx.py` and is not
+intended to be run standalone.
+
 ### `t61_frame_slicer`
 
 Reads a 2-bit-per-symbol byte stream on stdin (each input byte holds four
-symbols, MSB first) and writes 48-byte FDMA frames on stdout.
+symbols, MSB first — this is the format produced by
+`arib_t61_rx.py --packed-out -`) and writes 48-byte FDMA frames on
+stdout.
 
 ```sh
 t61_frame_slicer < symbols.bin > frames.t61
@@ -121,6 +176,8 @@ want to reuse pieces of the pipeline directly.
 ## Layout
 
 ```
+arib_t61_rx.py          # GNU Radio SDR receiver (multi-device front-end)
+pi4_qpsk_demod.py       # custom π/4-QPSK quasi-coherent demod block
 src/
 ├── lib.rs              # public re-exports
 ├── bin/
@@ -146,10 +203,13 @@ src/
 
 ## Real-time pipe usage
 
-Both binaries access stdin/stdout as raw file descriptors (no Rust-side
-buffering), so each frame's output reaches the next stage as soon as it
-is produced. A typical live decode looks like:
+Both Rust binaries access stdin/stdout as raw file descriptors (no
+Rust-side buffering), and `arib_t61_rx.py` flushes its file-descriptor
+sink unbuffered when `--packed-out -` is used, so each frame's output
+reaches the next stage as soon as it is produced. A typical live decode
+looks like:
 
 ```sh
-<symbol-source> | t61_frame_slicer | t61_fd_decoder
+PYTHONUNBUFFERED=1 python3 arib_t61_rx.py -d hackrf -f 467.000e6 --packed-out - \
+  | t61_frame_slicer | t61_fd_decoder
 ```
