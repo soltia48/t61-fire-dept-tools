@@ -556,7 +556,7 @@ def main():
     args, backend = parse_args()
     log = lambda *a, **kw: print(*a, file=sys.stderr, **kw)
 
-    log(f"ARIB STD-T61 receiver. Radio Act Article 59 applies.")
+    log(f"ARIB STD-T61 receiver.")
     log(f"Device      : {backend.name}")
     log(
         f"Center freq : {args.freq/1e6:.4f} MHz "
