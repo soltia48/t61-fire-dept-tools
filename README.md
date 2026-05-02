@@ -210,6 +210,6 @@ reaches the next stage as soon as it is produced. A typical live decode
 looks like:
 
 ```sh
-PYTHONUNBUFFERED=1 python3 arib_t61_rx.py -d hackrf -f 467.000e6 --packed-out - \
+PYTHONUNBUFFERED=1 python3 arib_t61_rx.py -d hackrf -f 274.60625e6 --packed-out - \
   | t61_frame_slicer | t61_fd_decoder
 ```
