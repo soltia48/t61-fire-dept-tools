@@ -49,17 +49,17 @@ are picked automatically; everything is overridable from the CLI.
 
 ```sh
 # RTL-SDR, on-channel tune, packed 4-symbols/byte to stdout
-python3 arib_t61_rx.py --device rtlsdr --freq 467.000e6 --packed-out -
+python3 arib_t61_rx.py --device rtlsdr --freq 274.60625e6 --packed-out -
 
 # HackRF with the default 500 kHz LO offset; live decode end-to-end
-python3 arib_t61_rx.py -d hackrf -f 467.000e6 --packed-out - \
+python3 arib_t61_rx.py -d hackrf -f 274.60625e6 --packed-out - \
   | t61_frame_slicer | t61_fd_decoder
 
 # Open the Qt GUI (spectrum / channel waterfall / constellation)
-python3 arib_t61_rx.py -d hackrf -f 467.000e6 --gui
+python3 arib_t61_rx.py -d hackrf -f 274.60625e6 --gui
 
 # Save decimated baseband IQ for offline replay
-python3 arib_t61_rx.py -d airspy -f 467.000e6 --iq-out capture.cf32
+python3 arib_t61_rx.py -d airspy -f 274.60625e6 --iq-out capture.cf32
 ```
 
 Output sinks (any combination):
