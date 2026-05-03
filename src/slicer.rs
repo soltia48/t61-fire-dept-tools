@@ -9,11 +9,10 @@
 //!
 //! The slicer's algorithm is sensitive to read granularity: short
 //! reads from the underlying source produce different (but still
-//! valid) framing decisions than full reads.  For byte-identical
-//! output to the C reference on regular-file inputs, supply a
-//! `Read` whose `read()` returns full chunks (e.g. a raw file
-//! descriptor wrapper rather than `io::stdin()`'s buffered
-//! `StdinLock`).
+//! valid) framing decisions than full reads.  For deterministic
+//! framing on regular-file inputs, supply a `Read` whose `read()`
+//! returns full chunks (e.g. a raw file descriptor wrapper rather
+//! than `io::stdin()`'s buffered `StdinLock`).
 
 use std::io::{self, Read};
 

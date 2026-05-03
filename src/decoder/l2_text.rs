@@ -17,7 +17,7 @@ pub(super) fn proc_l2block_data_textinfo(
     len: i32,
 ) {
     // info-type byte encoded as two ASCII hex digits at l2blocks[40..42];
-    // letters A-F (>64) and digits 0-9 fall through the original C subtraction.
+    // letters A-F (>64) subtract 55, digits 0-9 subtract 48.
     let infotype = {
         let h = state.l2blocks[40];
         let l = state.l2blocks[41];

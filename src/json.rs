@@ -2,15 +2,14 @@
 //! DSL that pairs a [`Cursor`] with an object builder.
 //!
 //! With `serde_json`'s `preserve_order` feature enabled, all `Map`s in
-//! this crate are insertion-ordered, so emitted records read in the
-//! same logical sequence as the C reference output.
+//! this crate are insertion-ordered, so each record's keys appear in
+//! the order they were inserted.
 
 use crate::primitives::Cursor;
 use serde_json::{Map, Value};
 
-/// Bytes → JSON string with NUL bytes silently dropped (matches the
-/// original C decoder's text-field convention).  Bytes are decoded as
-/// Shift_JIS; invalid sequences are replaced with U+FFFD.
+/// Bytes → JSON string with NUL bytes silently dropped.  Bytes are
+/// decoded as Shift_JIS; invalid sequences are replaced with U+FFFD.
 pub fn text_value(bytes: &[u8]) -> Value {
     let cleaned: Vec<u8> = bytes.iter().copied().filter(|&b| b != 0).collect();
     let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(&cleaned);
